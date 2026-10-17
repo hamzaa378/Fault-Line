@@ -1,0 +1,19 @@
+flowchart TD
+    Browser["Next.js / React UI"] -->|"JWT REST over HTTP"| API["FastAPI service"]
+    GitHub["GitHub Webhook"] -->|"Signed HMAC-SHA256"| API
+    CLI["CI / Monitoring Integrations"] -->|"Authenticated event ingestion"| API
+    API -->|"SQLAlchemy transactions"| DB[("PostgreSQL 16")]
+    API --> Auth["Project membership + RBAC"]
+    API --> EventLog["Append-only event inbox"]
+    API --> CAS["Atomic versioned incident update"]
+    API --> Inference["Explainable suspect scorer"]
+    EventLog --> DB
+    CAS --> DB
+    Inference --> DB
+    API --> Audit["Audit action records"]
+    Audit --> DB
+    Browser -.->|"15-second refresh"| API
+    classDef blue fill:#24344d,stroke:#7191bd,color:#f2f4fa
+    classDef purple fill:#322b55,stroke:#9f89ed,color:#f2f4fa
+    class Browser,API,GitHub,CLI blue
+    class Auth,EventLog,CAS,Inference,Audit purple

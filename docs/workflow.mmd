@@ -1,0 +1,18 @@
+flowchart LR
+   A["Commit / deployment / monitor alert"] --> B["Validate source + identity"]
+   B --> C{"Seen before?"}
+   C -->|"Exact match"| D["Acknowledge duplicate"]
+   C -->|"ID collision"| E["HTTP 409 conflict"]
+   C -->|"New"| F["Persist event with two clocks"]
+   F --> G["Rebuild chronological timeline"]
+   G --> H["Incident detected or reported"]
+   H --> I["Rank recent deployments"]
+   I --> J["Human triages candidates"]
+   J --> K["Append findings + associate releases"]
+   K --> L["Version-checked incident update"]
+   L --> M{"Another user updated?"}
+   M -->|"Yes"| N["409 + refresh instead of overwrite"]
+   M -->|"No"| O["Commit update and audit entry"]
+   O --> P["Resolve with documented remediation"]
+   classDef error fill:#4c283a,color:#fbd5df,stroke:#e2798a
+   class E,N error

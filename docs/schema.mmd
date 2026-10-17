@@ -1,0 +1,87 @@
+erDiagram
+    USERS ||--o{ MEMBERSHIPS : belongs
+    PROJECTS ||--o{ MEMBERSHIPS : contains
+    PROJECTS ||--o{ DEPLOYMENTS : records
+    PROJECTS ||--o{ CODE_CHANGES : records
+    PROJECTS ||--o{ INCIDENTS : tracks
+    PROJECTS ||--o{ EVENTS : streams
+    PROJECTS ||--o{ AUDIT_LOGS : audits
+    INCIDENTS ||--o{ INCIDENT_UPDATES : has
+    USERS ||--o{ INCIDENT_UPDATES : authors
+    INCIDENTS ||--o{ INCIDENT_DEPLOYMENT_LINKS : associates
+    DEPLOYMENTS ||--o{ INCIDENT_DEPLOYMENT_LINKS : referenced_by
+    USERS {
+      uuid_string id PK
+      string email UK
+      string name
+      string password_hash
+    }
+    PROJECTS {
+      uuid_string id PK
+      string slug UK
+      string name
+      text description
+    }
+    MEMBERSHIPS {
+      uuid_string id PK
+      uuid_string project_id FK
+      uuid_string user_id FK
+      string role
+    }
+    DEPLOYMENTS {
+      uuid_string id PK
+      uuid_string project_id FK
+      string version
+      string service
+      string status
+      string commit_sha
+      timestamp deployed_at
+    }
+    CODE_CHANGES {
+      uuid_string id PK
+      uuid_string project_id FK
+      string sha
+      string service
+      json changed_files
+      timestamp committed_at
+    }
+    INCIDENTS {
+      uuid_string id PK
+      uuid_string project_id FK
+      string title
+      string status
+      string severity
+      int version
+      timestamp first_seen_at
+      timestamp resolved_at
+    }
+    INCIDENT_UPDATES {
+      uuid_string id PK
+      uuid_string incident_id FK
+      uuid_string author_id FK
+      text body
+      timestamp created_at
+    }
+    EVENTS {
+      uuid_string id PK
+      uuid_string project_id FK
+      string source
+      string external_id
+      string type
+      timestamp occurred_at
+      timestamp received_at
+      string digest
+    }
+    AUDIT_LOGS {
+      uuid_string id PK
+      uuid_string project_id FK
+      uuid_string actor_id FK
+      json before
+      json after
+    }
+    INCIDENT_DEPLOYMENT_LINKS {
+      uuid_string id PK
+      uuid_string incident_id FK
+      uuid_string deployment_id FK
+      text reason
+    }
