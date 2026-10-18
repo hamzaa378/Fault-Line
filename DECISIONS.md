@@ -12,8 +12,8 @@ Use a relational, transactional PostgreSQL model for incidents, memberships, aud
 
 ## What is the main limitation?
 
-The deployment-suspect score is an interpretable rule-based hypothesis generator, not a root-cause detector. A nearby release on the same service is a useful investigation lead but does not establish causality. Webhooks currently store event evidence, not a full transformation into deployment/change domain records. Also see `docs/RISK_AND_LIMITATIONS.md`.
+The deployment-suspect score is an interpretable rule-based hypothesis generator, not a root-cause detector. A nearby release on the same service is a useful investigation lead but does not establish causality. Signed GitHub `push` events can create bounded commit records, and terminal `deployment_status` events can create deployment records. Large/truncated pushes, per-project webhook credentials, and lifecycle-wide deduplication of distinct deployment-status deliveries are not solved. Also see `docs/RISK_AND_LIMITATIONS.md`.
 
 ## What would you improve with another week?
 
-Prioritize a reproducible PostgreSQL parallel-write benchmark, a versioned migration strategy, and secure session handling before adding more UI features. Then enrich integration with repository identity validation and more precise commit/deployment attribution. Explain which of these you personally implemented and verified, with dates and evidence.
+Prioritize a reproducible PostgreSQL parallel-write benchmark, a versioned migration strategy, and secure session handling before adding more UI features. Then extend the environment-level project/repository bindings to per-project credentials and durable repository identity verification, and add more precise commit/deployment attribution. Explain which of these you personally implemented and verified, with dates and evidence.

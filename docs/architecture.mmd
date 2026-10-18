@@ -5,9 +5,11 @@ flowchart TD
     API -->|"SQLAlchemy transactions"| DB[("PostgreSQL 16")]
     API --> Auth["Project membership + RBAC"]
     API --> EventLog["Append-only event inbox"]
+    API --> Projection["Validated GitHub commit / deployment projection"]
     API --> CAS["Atomic versioned incident update"]
     API --> Inference["Explainable suspect scorer"]
     EventLog --> DB
+    Projection --> DB
     CAS --> DB
     Inference --> DB
     API --> Audit["Audit action records"]
@@ -16,4 +18,4 @@ flowchart TD
     classDef blue fill:#24344d,stroke:#7191bd,color:#f2f4fa
     classDef purple fill:#322b55,stroke:#9f89ed,color:#f2f4fa
     class Browser,API,GitHub,CLI blue
-    class Auth,EventLog,CAS,Inference,Audit purple
+    class Auth,EventLog,Projection,CAS,Inference,Audit purple

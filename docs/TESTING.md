@@ -16,9 +16,9 @@ Backend tests cover:
 - Append-only incident notes without changing the incident revision.
 - Replayed external events accepted once, conflicting reused IDs rejected.
 - Late event shown differently under occurrence-order versus arrival-order.
-- HMAC verification of GitHub webhooks, bad-signature rejection, delivery deduplication.
+- HMAC verification of GitHub webhooks, bad-signature rejection, delivery deduplication, project and repository binding, commit imports, deployment-status imports, and suspect-score integration.
 
-The local suite uses SQLite solely as a disposable test database. Docker Compose uses PostgreSQL, the recommended deployment DB. A PostgreSQL concurrent-client stress test is still a separate recommended validation step; do not claim one has been performed merely because the unit tests pass.
+The local suite uses SQLite solely as a disposable test database. Docker Compose uses PostgreSQL, the recommended deployment DB. A previous user-run PostgreSQL test used six simultaneous incident PATCH requests (1 HTTP 200, 5 HTTP 409, persisted version 2, 1 audit record), plus six simultaneous duplicate event ingestions (1 created, 5 duplicates, exactly 1 PostgreSQL row). This is limited empirical testing, not a broad load benchmark. The new v1.1 GitHub projection tests run against disposable SQLite until the user runs the signed webhook smoke against their PostgreSQL container.
 
 ## Guided demo (two to three minutes)
 
@@ -36,5 +36,5 @@ The local suite uses SQLite solely as a disposable test database. Docker Compose
 
 - Build and launch the two Docker images on a machine with Docker.
 - Open the UI in at least two browsers and perform the manual flow above.
-- Use PostgreSQL in multi-client race tests and GitHub deliveries with real payloads.
+- Repeat PostgreSQL multi-client race checks after deployment, then use real GitHub deliveries and verify projections against PostgreSQL.
 - Add schema migrations, secure cookie sessions, rate limiting, and verified GitHub repository binding.

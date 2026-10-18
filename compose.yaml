@@ -22,6 +22,9 @@ services:
       DATABASE_URL: postgresql+psycopg://faultline:${POSTGRES_PASSWORD:-faultline-local-demo-only}@db:5432/faultline
       JWT_SECRET: ${JWT_SECRET:-faultline-unsafe-local-demo-secret-change-me}
       GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
+      GITHUB_PROJECT_ID: ${GITHUB_PROJECT_ID:-}
+      GITHUB_ALLOWED_REPOSITORIES: ${GITHUB_ALLOWED_REPOSITORIES:-}
+      GITHUB_DEFAULT_SERVICE: ${GITHUB_DEFAULT_SERVICE:-checkout-api}
       CORS_ORIGINS: http://localhost:3000
       SEED_DEMO: "true"
       SEED_PASSWORD: ${SEED_PASSWORD:-DemoPassword123!}

@@ -84,6 +84,8 @@ def test_project_isolation_and_rbac(client, owner):
 
 def test_github_webhook_verification_and_dedupe(client, owner, monkeypatch):
     monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "local-test-secret")
+    monkeypatch.delenv("GITHUB_PROJECT_ID", raising=False)
+    monkeypatch.delenv("GITHUB_ALLOWED_REPOSITORIES", raising=False)
     h,pid = owner
     payload = json.dumps({"repository":{"full_name":"user/repo"},"ref":"refs/heads/main"}).encode()
     signature = "sha256="+hmac.new(b"local-test-secret", payload, hashlib.sha256).hexdigest()

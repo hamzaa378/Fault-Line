@@ -15,6 +15,7 @@ from .schemas import (Register, Login, TokenOut, UserOut, ProjectIn, ProjectOut,
 from .auth import hash_password, verify_password, create_token, current_user, require_member
 from .events import append_event, internal_event, audit, aware
 from .insights import suspects, recurring
+from .github_webhooks import optional_repo_binding, project_push, project_deployment_status, timestamp_or
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -24,7 +25,7 @@ async def lifespan(app: FastAPI):
         seed_demo()
     yield
 
-app = FastAPI(title="Faultline API", version="1.0.0", description="Evidence-first incident and deployment tracking", lifespan=lifespan)
+app = FastAPI(title="Faultline API", version="1.1.0", description="Evidence-first incident and deployment tracking", lifespan=lifespan)
 app.add_middleware(CORSMiddleware,
     allow_origins=[s.strip() for s in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")],
     allow_credentials=True, allow_methods=["GET", "POST", "PATCH"], allow_headers=["Authorization", "Content-Type"])
@@ -53,7 +54,7 @@ def commit(db):
 @app.get("/health")
 def health(db: Session = Depends(get_db)):
     db.execute(text("SELECT 1"))
-    return {"status": "ok", "version": "1.0.0", "database": "reachable"}
+    return {"status": "ok", "version": "1.1.0", "database": "reachable"}
 
 @app.post("/api/auth/register", response_model=TokenOut, status_code=201, tags=["auth"])
 def register(body: Register, db: Session = Depends(get_db)):
@@ -278,42 +279,82 @@ def dashboard(pid: str, db: Session = Depends(get_db), user: User = Depends(curr
 @app.post("/api/webhooks/github/{pid}", tags=["webhooks"])
 async def github_webhook(pid: str, request: Request, db: Session = Depends(get_db)):
     secret = os.getenv("GITHUB_WEBHOOK_SECRET", "")
-    if not secret: raise HTTPException(503, "GitHub webhook secret not configured")
+    if not secret:
+        raise HTTPException(503, "GitHub webhook secret not configured")
     payload_bytes = await request.body()
-    if len(payload_bytes) > 131072: raise HTTPException(413, "Webhook payload too large")
+    if len(payload_bytes) > 1048576:
+        raise HTTPException(413, "Webhook payload too large")
     signature = request.headers.get("X-Hub-Signature-256", "")
     expected = "sha256=" + hmac.new(secret.encode(), payload_bytes, hashlib.sha256).hexdigest()
-    if not hmac.compare_digest(signature, expected): raise HTTPException(401, "Invalid GitHub webhook signature")
-    if not db.get(Project, pid): raise HTTPException(404, "Project not found")
+    if not hmac.compare_digest(signature, expected):
+        raise HTTPException(401, "Invalid GitHub webhook signature")
+    if not db.get(Project, pid):
+        raise HTTPException(404, "Project not found")
     delivery_id = request.headers.get("X-GitHub-Delivery", "")
-    if not delivery_id: raise HTTPException(400, "Missing delivery ID")
-    event_type = request.headers.get("X-GitHub-Event", "ping")
+    if not delivery_id or len(delivery_id) > 150:
+        raise HTTPException(400, "Missing or invalid GitHub delivery ID")
+    event_type = request.headers.get("X-GitHub-Event", "")
+    if not event_type or len(event_type) > 60:
+        raise HTTPException(400, "Missing or invalid GitHub event type")
+    try:
+        payload = json.loads(payload_bytes)
+    except (ValueError, UnicodeDecodeError):
+        raise HTTPException(400, "Invalid JSON")
+    if not isinstance(payload, dict):
+        raise HTTPException(400, "Webhook JSON must be an object")
+    repository = payload.get("repository") or {}
+    if not isinstance(repository, dict):
+        raise HTTPException(400, "Invalid repository metadata")
+    repo = repository.get("full_name") or "unknown"
+    if not isinstance(repo, str):
+        raise HTTPException(400, "Invalid repository name")
+    optional_repo_binding(repo, pid)
+
+    # Signature + binding checks precede replay detection, so a duplicate
+    # never skips authorization. The digest includes event type and bytes.
     raw_digest = hashlib.sha256(event_type.encode() + b"\n" + payload_bytes).hexdigest()
-    previously_seen = db.query(Event).filter_by(project_id=pid, source="github", external_id=delivery_id).first()
-    if previously_seen:
-        if previously_seen.details.get("payload_sha256") != raw_digest:
+    seen = db.query(Event).filter_by(project_id=pid, source="github", external_id=delivery_id).first()
+    if seen:
+        if seen.details.get("payload_sha256") != raw_digest:
             raise HTTPException(409, "GitHub delivery ID reused for a different payload")
-        return {"accepted": True, "duplicate": True, "event_id": previously_seen.id}
-    try: payload = json.loads(payload_bytes)
-    except (ValueError, UnicodeDecodeError): raise HTTPException(400, "Invalid JSON")
-    repo = payload.get("repository", {}).get("full_name", "unknown")
+        return {"accepted": True, "duplicate": True, "event_id": seen.id,
+                "new_changes": 0, "new_deployments": 0}
+
     if event_type == "push":
         record_type = "change"
-        summary = f"Push to {repo}: {payload.get('ref', 'unknown')}"
-        timestamp = (payload.get("head_commit") or {}).get("timestamp")
+        summary = f"Push to {repo}: {payload.get('ref', 'unknown')}"[:300]
+        head = payload.get("head_commit") or {}
+        timestamp = head.get("timestamp") if isinstance(head, dict) else None
     elif event_type in ("deployment", "deployment_status"):
         record_type = "deployment"
-        summary = f"{event_type} on {repo}"
-        timestamp = payload.get("deployment", {}).get("created_at")
+        summary = f"{event_type} on {repo}"[:300]
+        status_obj = payload.get("deployment_status") or {}
+        dep = payload.get("deployment") or {}
+        timestamp = (status_obj.get("created_at") if isinstance(status_obj, dict) else None) or (dep.get("created_at") if isinstance(dep, dict) else None)
     else:
-        record_type = "note"; summary = f"GitHub {event_type} on {repo}"; timestamp = None
-    try: occurred = datetime.fromisoformat(timestamp.replace("Z", "+00:00")) if timestamp else utcnow()
-    except (TypeError, ValueError): occurred = utcnow()
-    if occurred.tzinfo is None: occurred = occurred.replace(tzinfo=timezone.utc)
+        record_type = "note"
+        summary = f"GitHub {event_type} on {repo}"[:300]
+        timestamp = None
+    occurred = timestamp_or(timestamp, utcnow())
     details = {"github_event": event_type, "repository": repo,
-               "ref": str(payload.get("ref", "")), "head_sha": str(payload.get("after", "")), "payload_sha256": raw_digest}
-    ev, duplicate = append_event(db, pid, source="github", external_id=delivery_id, type_=record_type,
-                                 summary=summary, occurred_at=occurred, details=details)
-    if not duplicate: audit(db, pid, None, "github.webhook_received", after={"event_id": ev.id, "kind": event_type})
+               "ref": str(payload.get("ref", ""))[:250],
+               "head_sha": str(payload.get("after", ""))[:64],
+               "payload_sha256": raw_digest}
+    ev, duplicate = append_event(db, pid, source="github", external_id=delivery_id,
+                                 type_=record_type, summary=summary,
+                                 occurred_at=occurred, details=details)
+    if duplicate:
+        return {"accepted": True, "duplicate": True, "event_id": ev.id,
+                "new_changes": 0, "new_deployments": 0}
+
+    new_changes = project_push(db, pid, payload, occurred) if event_type == "push" else []
+    deployment_id = project_deployment_status(db, pid, payload, occurred) if event_type == "deployment_status" else None
+    # Keep the projection summary on the immutable evidence record.
+    ev.details = {**details, "new_change_shas": new_changes,
+                  "new_deployment_id": deployment_id}
+    audit(db, pid, None, "github.webhook_received", after={
+        "event_id": ev.id, "kind": event_type, "new_changes": len(new_changes),
+        "new_deployments": int(bool(deployment_id))})
     commit(db)
-    return {"accepted": True, "duplicate": duplicate, "event_id": ev.id}
+    return {"accepted": True, "duplicate": False, "event_id": ev.id,
+            "new_changes": len(new_changes), "new_deployments": int(bool(deployment_id))}

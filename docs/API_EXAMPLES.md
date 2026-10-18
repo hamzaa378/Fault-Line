@@ -50,4 +50,4 @@ Sending the same payload twice returns `duplicate: true` with the same event ID.
 3. Select `push`, `deployment`, and `deployment_status` event kinds.
 4. The API verifies `X-Hub-Signature-256` using HMAC-SHA256 and deduplicates by GitHub delivery ID.
 
-The current integration creates **timeline evidence** for GitHub deliveries. It does not automatically synthesize full deployment and code-change records; those are recorded using the authenticated REST endpoints. Repo-to-project ownership verification beyond the shared secret and per-project webhook secrets are future improvements.
+In v1.1 the integration creates **timeline evidence plus bounded commit and terminal deployment-status projections**. See `GITHUB_WEBHOOK_STAGE16.md` for repository/project binding, test requests, limited payload behavior, and safe tunnel setup. Per-project secrets are future work.

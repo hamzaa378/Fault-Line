@@ -60,7 +60,7 @@ To stop: `docker compose down`. **Warning:** `docker compose down -v` deletes th
 
 ### Bonus / original extensions
 
-- **Signed GitHub webhooks:** HMAC-SHA256 verification, stable delivery ID deduplication (supports `push` and deployment-related events as timeline evidence).
+- **Signed GitHub webhooks (v1.1):** HMAC-SHA256 verification, project/repository allowlists, stable delivery ID deduplication, automatic commit imports from `push`, and terminal deployment records from `deployment_status`. See `docs/GITHUB_WEBHOOK_STAGE16.md`.
 - **Four project roles:** owner, maintainer, responder, viewer enforced by backend authorization.
 - **Full action audit:** actor, action, before/after details and immutable incident notes.
 - **Transparent deployment lead scoring:** relative timing, affected service, deployment state and matching commit. Each score includes reasons and warns against causal assumptions.
@@ -68,7 +68,7 @@ To stop: `docker compose down`. **Warning:** `docker compose down -v` deletes th
 - **Investigation export:** generates a Markdown case report with suspect evidence and team notes.
 - **Data-integrity demonstration:** sample backdated notifications plus automatic conflict responses make edge cases visible to reviewers.
 
-**Scope note:** The UI refreshes every 15 seconds, not via realtime push. An actual internet deployment is not provided. See `docs/RISK_AND_LIMITATIONS.md`.
+**Scope note:** The UI refreshes every 15 seconds, not via realtime push. GitHub events must be signed and bound to the intended project/repository when exposed. An actual internet deployment is not provided. See `docs/RISK_AND_LIMITATIONS.md`.
 
 ## Architecture and workflow
 
@@ -95,7 +95,7 @@ See the [rendered Mermaid diagrams](docs/DIAGRAMS.md) on GitHub, or inspect the 
 - `GET/POST .../incidents/{incident_id}/updates`, `GET/POST .../links`, `GET .../suspects`
 - `GET /api/projects/{id}/dashboard`, `GET /api/projects/{id}/events?order=occurred|received`
 - `POST /api/projects/{id}/events/ingest`, `GET /api/projects/{id}/audit`
-- `POST /api/webhooks/github/{id}` (signature required; configure secret)
+- `POST /api/webhooks/github/{id}` (signature, project/repository binding and delivery dedupe; see Stage 16 guide)
 
 PowerShell examples are in [`docs/API_EXAMPLES.md`](docs/API_EXAMPLES.md).
 
@@ -151,3 +151,7 @@ DECISIONS.md          Technical trade-off notes to personalize
 ```
 
 **This is a technical demonstration, not a production incident management service.** See known limitations before deploying.
+
+## Stage 16: GitHub webhook setup and verification
+
+See **[`docs/GITHUB_WEBHOOK_STAGE16.md`](docs/GITHUB_WEBHOOK_STAGE16.md)** for an existing-data-safe upgrade, Windows PowerShell signed smoke test, and webhook-only HTTPS tunnel procedure. The live PostgreSQL volume is not changed by this release.

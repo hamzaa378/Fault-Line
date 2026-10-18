@@ -1,3 +1,17 @@
+# CONTINUE HERE — Faultline Stage 16 / v1.1
+
+**Current checkpoint:** The existing v1 user deployment passed concurrent incident writes (1 success, 5 HTTP 409), concurrent event ingestions (1 new, 5 duplicates), project RBAC, data persistence, Docker API health, and 10 backend tests. User confirmed eight incidents visible to responder. The v1.1 source extension adds signed GitHub `push` -> `code_changes`, GitHub `deployment_status` -> `deployments`, project/repository binding, and test scripts. **Fourteen backend tests pass in the source-build environment; Docker v1.1 and actual remote GitHub delivery still need user verification.**
+
+**Start here for Windows testing:** `docs/GITHUB_WEBHOOK_STAGE16.md`. Do not replace or delete the existing Docker/Postgres data volume, and do not share `.env` or secrets.
+
+**Code checkpoint:** `backend/app/main.py` webhook handler; new `backend/app/github_webhooks.py` validated projection; `backend/tests/test_github_integration_v2.py` new regression cases; `scripts/github_webhook_smoke.ps1` live signed local verification; `scripts/webhook_gateway.py` webhook-only demo relay; updated `compose.yaml` and `.env.example`. No database migration or table modification.
+
+**Immediate continuation:** (1) Back up running Postgres with `pg_dump -Fc` to host; (2) overlay the v1.1 files, preserving `.env`; (3) set `GITHUB_WEBHOOK_SECRET`, `GITHUB_PROJECT_ID`, `GITHUB_ALLOWED_REPOSITORIES`, `GITHUB_DEFAULT_SERVICE`; (4) `docker compose up -d --build api`; (5) health and data count check; (6) run `github_webhook_smoke.ps1`; (7) run 14 tests in disposable container; (8) optionally connect genuine GitHub repo via restricted HTTPS tunnel, not by exposing entire API.
+
+**Known caveats:** Push commits only when supplied in GitHub payload; status events do not infer cause; one global secret rather than per-project credentials; real deployment events need actual deployment_status notifications; demo ingress gateway is not hardened production infrastructure; no frontend SSE yet; schema migrations not implemented; repo-to-project binding currently env-based; database volume still contains all QA records.
+
+---
+
 # Faultline v1 · Continuation and handover
 
 **Start here when continuing this project in another chat, with another developer, or on another machine.**
